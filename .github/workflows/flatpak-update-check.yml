@@ -53,7 +53,7 @@ jobs:
 
       - name: Clone the IntelliJ IDEA Community repository
         if: steps.check_update.outputs.update_needed == 'true'
-        run: git clone https://github.com/flathub/com.jetbrains.IntelliJ-IDEA-Community
+        run: git clone --recurse-submodules https://github.com/flathub/com.jetbrains.IntelliJ-IDEA-Community
 
       - name: Add xrandr module to YAML
         if: steps.check_update.outputs.update_needed == 'true'
