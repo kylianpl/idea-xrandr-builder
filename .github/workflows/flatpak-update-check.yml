@@ -67,11 +67,12 @@ jobs:
           cd com.jetbrains.IntelliJ-IDEA-Community
           sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
           sudo flatpak install -y flathub org.freedesktop.Sdk/x86_64/23.08
-          flatpak-builder --force-clean build-dir com.jetbrains.IntelliJ-IDEA-Community.yaml
+          flatpak-builder --force-clean --repo=repo build-dir com.jetbrains.IntelliJ-IDEA-Community.yaml
+          flatpak build-bundle repo intellij-community-edition.flatpak com.jetbrains.IntelliJ-IDEA-Community
 
       - name: Upload Flatpak artifact
         if: steps.check_update.outputs.update_needed == 'true'
         uses: actions/upload-artifact@v3
         with:
-          name: flatpak-build
-          path: com.jetbrains.IntelliJ-IDEA-Community/build-dir
+          name: intellij-community-edition.flatpak
+          path: com.jetbrains.IntelliJ-IDEA-Community/intellij-community-edition.flatpak
