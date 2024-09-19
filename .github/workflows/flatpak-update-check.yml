@@ -10,6 +10,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Install flatpak-builder
+        run: apt install flatpak-builder
       - name: Checkout the workflow repository
         uses: actions/checkout@v3
 
