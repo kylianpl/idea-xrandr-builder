@@ -65,6 +65,7 @@ jobs:
         if: steps.check_update.outputs.update_needed == 'true'
         run: |
           cd com.jetbrains.IntelliJ-IDEA-Community
+          flatpak install -y org.freedesktop.Sdk/x86_64/23.08
           flatpak-builder --force-clean build-dir com.jetbrains.IntelliJ-IDEA-Community.yaml
 
       - name: Upload Flatpak artifact
