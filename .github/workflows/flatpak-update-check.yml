@@ -11,7 +11,7 @@ jobs:
 
     steps:
       - name: Install flatpak-builder
-        run: apt install flatpak-builder
+        run: sudo apt-get install -y flatpak-builder
       - name: Checkout the workflow repository
         uses: actions/checkout@v3
 
