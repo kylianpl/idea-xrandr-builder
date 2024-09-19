@@ -1,0 +1,73 @@
+name: Check for IntelliJ IDEA Community Flatpak Update
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # Runs daily at midnight
+  workflow_dispatch: # Allows manual trigger as well
+
+jobs:
+  check-for-update:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout the workflow repository
+        uses: actions/checkout@v3
+
+      - name: Get the latest commit hash
+        id: get_latest_commit
+        run: |
+          latest_commit=$(git ls-remote https://github.com/flathub/com.jetbrains.IntelliJ-IDEA-Community HEAD | awk '{ print $1 }')
+          echo "Latest commit hash: $latest_commit"
+          echo "::set-output name=commit::$latest_commit"
+
+      - name: Retrieve the last commit hash
+        id: retrieve_commit
+        uses: nick-fields/persist-action-data@v1
+        with:
+          retrieve_variables: LAST_COMMIT_HASH
+
+      - name: Compare with stored commit hash
+        id: check_update
+        run: |
+          # Get the retrieved commit hash
+          last_commit=${{ env.LAST_COMMIT_HASH }}
+          echo "Last commit hash: $last_commit"
+
+          # Check if the latest commit differs from the last known commit
+          if [ "$last_commit" != "${{ steps.get_latest_commit.outputs.commit }}" ]; then
+            echo "New version detected"
+            echo "::set-output name=update_needed::true"
+          else
+            echo "No new version"
+            echo "::set-output name=update_needed::false"
+          fi
+
+      - name: Store the latest commit hash
+        if: steps.check_update.outputs.update_needed == 'true'
+        uses: nick-fields/persist-action-data@v1
+        with:
+          data: ${{ steps.get_latest_commit.outputs.commit }}
+          variable: LAST_COMMIT_HASH
+
+      - name: Clone the IntelliJ IDEA Community repository
+        if: steps.check_update.outputs.update_needed == 'true'
+        run: git clone https://github.com/flathub/com.jetbrains.IntelliJ-IDEA-Community
+
+      - name: Add xrandr module to YAML
+        if: steps.check_update.outputs.update_needed == 'true'
+        run: |
+          cd com.jetbrains.IntelliJ-IDEA-Community
+          sed -i '/modules:/a\  - name: xrandr\n    buildsystem: autotools\n    sources:\n      - type: archive\n        sha256: 7bc76daf9d72f8aff885efad04ce06b90488a1a169d118dea8a2b661832e8762\n        url: https://xorg.freedesktop.org/archive/individual/app/xrandr-1.5.1.tar.xz' com.jetbrains.IntelliJ-IDEA-Community.yaml
+
+      - name: Build the Flatpak
+        if: steps.check_update.outputs.update_needed == 'true'
+        run: |
+          cd com.jetbrains.IntelliJ-IDEA-Community
+          flatpak-builder --force-clean build-dir com.jetbrains.IntelliJ-IDEA-Community.yaml
+
+      - name: Upload Flatpak artifact
+        if: steps.check_update.outputs.update_needed == 'true'
+        uses: actions/upload-artifact@v3
+        with:
+          name: flatpak-build
+          path: com.jetbrains.IntelliJ-IDEA-Community/build-dir
