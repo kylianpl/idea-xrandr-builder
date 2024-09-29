@@ -1,81 +1,83 @@
 name: Check for IntelliJ IDEA Community Flatpak Update
-on:  
-  schedule:    
-    - cron: '0 0 * * *'  # Runs daily at midnight  
+on:
+  schedule:
+    - cron: '0 0 * * *'  # Runs daily at midnight
   workflow_dispatch:  # Allows manual trigger as well
-jobs:  
-  check-for-update:    
-    runs-on: ubuntu-latest    
-    steps:      
-      - name: Install flatpak-builder        
+jobs:
+  check-for-update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Update Ubuntu
+        run: sudo apt-get update && sudo apt get upgrade
+
+      - name: Install flatpak-builder
         run: sudo apt-get install -y flatpak-builder
-      
+
       - name: Checkout the workflow repository
         uses: actions/checkout@v3
 
-      - name: Get the latest commit hash        
-        id: get_latest_commit        
-        run: |          
-          latest_commit=$(git ls-remote https://github.com/flathub/com.jetbrains.IntelliJ-IDEA-Community HEAD | awk '{ print $1 }')          
-          echo "Latest commit hash: $latest_commit"          
-          echo "::set-output name=commit::$latest_commit"      
+      - name: Get the latest commit hash
+        id: get_latest_commit
+        run: |
+          latest_commit=$(git ls-remote https://github.com/flathub/com.jetbrains.IntelliJ-IDEA-Community HEAD | awk '{ print $1 }')
+          echo "Latest commit hash: $latest_commit"
+          echo "::set-output name=commit::$latest_commit"
 
-      - name: Retrieve the last commit hash        
-        id: retrieve_commit        
-        run: |          
+      - name: Retrieve the last commit hash
+        id: retrieve_commit
+        run: |
           if [ -f LAST_COMMIT_HASH.txt ]; then
-            last_commit=$(cat LAST_COMMIT_HASH.txt)          
+            last_commit=$(cat LAST_COMMIT_HASH.txt)
             echo "Last commit hash: $last_commit"
           else
             last_commit=""
           fi
           echo "::set-output name=last_commit::$last_commit"
 
-      - name: Compare with stored commit hash        
-        id: check_update        
-        run: |          
-          last_commit="${{ steps.retrieve_commit.outputs.last_commit }}"          
-          echo "Last commit hash: $last_commit"          
-          if [ "$last_commit" != "${{ steps.get_latest_commit.outputs.commit }}" ]; then            
-            echo "New version detected"            
-            echo "::set-output name=update_needed::true"          
-          else            
-            echo "No new version"            
-            echo "::set-output name=update_needed::false"          
+      - name: Compare with stored commit hash
+        id: check_update
+        run: |
+          last_commit="${{ steps.retrieve_commit.outputs.last_commit }}"
+          echo "Last commit hash: $last_commit"
+          if [ "$last_commit" != "${{ steps.get_latest_commit.outputs.commit }}" ]; then
+            echo "New version detected"
+            echo "::set-output name=update_needed::true"
+          else
+            echo "No new version"
+            echo "::set-output name=update_needed::false"
           fi
 
-      - name: Store the latest commit hash in the repository        
-        if: steps.check_update.outputs.update_needed == 'true'        
-        run: |          
+      - name: Store the latest commit hash in the repository
+        if: steps.check_update.outputs.update_needed == 'true'
+        run: |
           echo "${{ steps.get_latest_commit.outputs.commit }}" > LAST_COMMIT_HASH.txt
           git config user.name "GitHub Action"
           git config user.email "action@github.com"
           git add LAST_COMMIT_HASH.txt
           git commit -m "Update LAST_COMMIT_HASH.txt with latest commit"
           git push
-
-      - name: Clone the IntelliJ IDEA Community repository        
-        if: steps.check_update.outputs.update_needed == 'true'        
+      - name: Clone the IntelliJ IDEA Community repository
+        if: steps.check_update.outputs.update_needed == 'true'
         run: git clone --recurse-submodules https://github.com/flathub/com.jetbrains.IntelliJ-IDEA-Community
 
-      - name: Add xrandr module to YAML        
-        if: steps.check_update.outputs.update_needed == 'true'        
-        run: |          
-          cd com.jetbrains.IntelliJ-IDEA-Community          
+      - name: Add xrandr module to YAML
+        if: steps.check_update.outputs.update_needed == 'true'
+        run: |
+          cd com.jetbrains.IntelliJ-IDEA-Community
           sed -i '/modules:/a\  - name: xrandr\n    buildsystem: autotools\n    sources:\n      - type: archive\n        sha256: 7bc76daf9d72f8aff885efad04ce06b90488a1a169d118dea8a2b661832e8762\n        url: https://xorg.freedesktop.org/archive/individual/app/xrandr-1.5.1.tar.xz' com.jetbrains.IntelliJ-IDEA-Community.yaml
 
-      - name: Build the Flatpak        
-        if: steps.check_update.outputs.update_needed == 'true'        
-        run: |          
-          cd com.jetbrains.IntelliJ-IDEA-Community          
-          sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo          
-          sudo flatpak install -y flathub org.freedesktop.Sdk/x86_64/23.08          
-          flatpak-builder --force-clean --disable-cache --repo=repo build-dir com.jetbrains.IntelliJ-IDEA-Community.yaml          
+      - name: Build the Flatpak
+        if: steps.check_update.outputs.update_needed == 'true'
+        run: |
+          cd com.jetbrains.IntelliJ-IDEA-Community
+          sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+          sudo flatpak install -y flathub org.freedesktop.Sdk/x86_64/23.08
+          flatpak-builder --force-clean --disable-cache --repo=repo build-dir com.jetbrains.IntelliJ-IDEA-Community.yaml
           flatpak build-bundle repo intellij-community-edition.flatpak com.jetbrains.IntelliJ-IDEA-Community
 
-      - name: Upload Flatpak artifact        
-        if: steps.check_update.outputs.update_needed == 'true'        
-        uses: actions/upload-artifact@v3        
-        with:          
-          name: intellij-community-edition.flatpak          
+      - name: Upload Flatpak artifact
+        if: steps.check_update.outputs.update_needed == 'true'
+        uses: actions/upload-artifact@v3
+        with:
+          name: intellij-community-edition.flatpak
           path: com.jetbrains.IntelliJ-IDEA-Community/intellij-community-edition.flatpak
